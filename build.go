@@ -14,9 +14,10 @@ const (
 
 // builder provides building an XPath expressions.
 type builder struct {
-	depth      int
-	flag       flag
-	firstInput query
+	depth       int
+	flag        flag
+	firstInput  query
+	customFuncs map[string]interface{}
 }
 
 // axisPredicate creates a predicate to predicating for this axis node.
@@ -470,7 +471,25 @@ func (b *builder) processFunctionNode(root *functionNode) (query, error) {
 		}
 		qyOutput = &functionQuery{Input: argQuery, Func: stringJoinFunc(arg1)}
 	default:
-		return nil, fmt.Errorf("not yet support this function %s()", root.FuncName)
+		customFunc, ok := b.customFuncs[root.FuncName]
+		if ok {
+			customFunc, ok := customFunc.(func(args ...query) func(query, iterator) interface{})
+			if ok {
+				var args []query
+				var err error
+				for i := 0; i < len(root.Args); i++ {
+					args[i], err = b.processNode(root.Args[i])
+					if err != nil {
+						return nil, err
+					}
+				}
+				qyOutput = &functionQuery{Input: b.firstInput, Func: customFunc(args...)}
+			}
+
+		} else {
+			return nil, fmt.Errorf("not yet support this function %s()", root.FuncName)
+		}
+
 	}
 	return qyOutput, nil
 }
@@ -564,7 +583,7 @@ func (b *builder) processNode(root node) (q query, err error) {
 }
 
 // build builds a specified XPath expressions expr.
-func build(expr string, namespaces map[string]string) (q query, err error) {
+func build(expr string, namespaces map[string]string, customFuncs map[string]interface{}) (q query, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			switch x := e.(type) {
@@ -578,6 +597,6 @@ func build(expr string, namespaces map[string]string) (q query, err error) {
 		}
 	}()
 	root := parse(expr, namespaces)
-	b := &builder{}
+	b := &builder{customFuncs: customFuncs}
 	return b.processNode(root)
 }

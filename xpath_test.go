@@ -2,6 +2,7 @@ package xpath
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -360,12 +361,34 @@ func TestFunction(t *testing.T) {
 	testXPath3(t, html, "//li/preceding::*[1]", selectNode(html, "//h1"))
 }
 
+func TestCustomFunction(t *testing.T) {
+	RegisterCustomFunc("tib-pad", tibPad)
+	testEval(t, html, `tib-pad("test",2)`, "test00")
+}
+
+func tibPad(args ...query) func(query, iterator) interface{} {
+	return func(q query, t iterator) interface{} {
+		str, ok := functionArgs(args[0]).Evaluate(t).(string)
+		if !ok {
+			panic(errors.New("tibPad() function first argument type must be string"))
+		}
+		padSize, ok := functionArgs(args[1]).Evaluate(t).(int)
+		if !ok {
+			panic(errors.New("tibPad() function second argument type must be int"))
+		}
+		for i := 0; i < padSize; i++ {
+			str += "0"
+		}
+		return str
+	}
+}
+
 func TestFunction_matches(t *testing.T) {
 	// testing unexpected the regular expression.
-	if _, err := build(`//*[matches(., '^[\u0621-\u064AA-Za-z\-]+')]`, nil); err == nil {
+	if _, err := build(`//*[matches(., '^[\u0621-\u064AA-Za-z\-]+')]`, nil, nil); err == nil {
 		t.Fatal("matches() should got error, but nil")
 	}
-	if _, err := build(`//*[matches(., '//*[matches(., '\w+`, nil); err == nil {
+	if _, err := build(`//*[matches(., '//*[matches(., '\w+`, nil, nil); err == nil {
 		t.Fatal("matches() should got error, but nil")
 	}
 }

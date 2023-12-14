@@ -70,6 +70,12 @@ type NodeNavigator interface {
 	MoveTo(NodeNavigator) bool
 }
 
+var customFuncs = map[string]interface{}{}
+
+func RegisterCustomFunc(name string, f func(args ...query) func(query, iterator) interface{}) {
+	customFuncs[name] = f
+}
+
 // NodeIterator holds all matched Node object.
 type NodeIterator struct {
 	node  NodeNavigator
@@ -141,7 +147,7 @@ func Compile(expr string) (*Expr, error) {
 	if expr == "" {
 		return nil, errors.New("expr expression is nil")
 	}
-	qy, err := build(expr, nil)
+	qy, err := build(expr, nil, customFuncs)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +171,7 @@ func CompileWithNS(expr string, namespaces map[string]string) (*Expr, error) {
 	if expr == "" {
 		return nil, errors.New("expr expression is nil")
 	}
-	qy, err := build(expr, namespaces)
+	qy, err := build(expr, namespaces, customFuncs)
 	if err != nil {
 		return nil, err
 	}
