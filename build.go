@@ -476,12 +476,12 @@ func (b *builder) processFunctionNode(root *functionNode) (query, error) {
 			customFunc, ok := customFunc.(func(args ...query) func(query, iterator) interface{})
 			if ok {
 				var args []query
-				var err error
 				for i := 0; i < len(root.Args); i++ {
-					args[i], err = b.processNode(root.Args[i])
+					result, err := b.processNode(root.Args[i])
 					if err != nil {
 						return nil, err
 					}
+					args = append(args, result)
 				}
 				qyOutput = &functionQuery{Input: b.firstInput, Func: customFunc(args...)}
 			}

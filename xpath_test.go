@@ -2,6 +2,7 @@ package xpath
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -363,24 +364,44 @@ func TestFunction(t *testing.T) {
 
 func TestCustomFunction(t *testing.T) {
 	RegisterCustomFunc("tib-pad", tibPad)
-	testEval(t, html, `tib-pad("test",2)`, "test00")
+	RegisterCustomFunc("tib-str-to-b64", tibStrToB64)
+	testEval(t, html, `tib-pad('test',2)`, "test00")
+	testEval(t, html, `tib-str-to-b64('test')`, "dGVzdA==")
+
+	testEval(t, html, `tib-str-to-b64(tib-pad('test',2))`, "dGVzdDAw")
+	testEval(t, html, `tib-pad(tib-str-to-b64('test'),2)`, "dGVzdA==00")
 }
 
-func tibPad(args ...query) func(query, iterator) interface{} {
-	return func(q query, t iterator) interface{} {
-		str, ok := functionArgs(args[0]).Evaluate(t).(string)
-		if !ok {
-			panic(errors.New("tibPad() function first argument type must be string"))
-		}
-		padSize, ok := functionArgs(args[1]).Evaluate(t).(int)
-		if !ok {
-			panic(errors.New("tibPad() function second argument type must be int"))
-		}
-		for i := 0; i < padSize; i++ {
-			str += "0"
-		}
-		return str
+func tibPad(args Args) interface{} {
+	str, ok := args.Get(0).(string)
+	if !ok {
+		panic(errors.New("tibPad() function first argument type must be string"))
 	}
+
+	var padSize int
+	switch v := args.Get(1).(type) {
+	case int:
+		padSize = v
+	case float64:
+		padSize = int(v)
+	default:
+		panic(errors.New("tib-pad() function second argument type must be number"))
+	}
+	for i := 0; i < padSize; i++ {
+		str += "0"
+	}
+	return str
+
+}
+
+func tibStrToB64(args Args) interface{} {
+	str, ok := args.Get(0).(string)
+	if !ok {
+		panic(errors.New("tib-str-to-b64() function first argument type must be string"))
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(str))
+
 }
 
 func TestFunction_matches(t *testing.T) {

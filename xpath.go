@@ -70,10 +70,31 @@ type NodeNavigator interface {
 	MoveTo(NodeNavigator) bool
 }
 
+type Args interface {
+	Get(index int) interface{}
+}
+
+type argsGetter struct {
+	args []query
+	t    iterator
+}
+
+func (aG *argsGetter) Get(index int) interface{} {
+	return functionArgs(aG.args[index]).Evaluate(aG.t)
+}
+
 var customFuncs = map[string]interface{}{}
 
-func RegisterCustomFunc(name string, f func(args ...query) func(query, iterator) interface{}) {
-	customFuncs[name] = f
+func RegisterCustomFunc(name string, f func(args Args) interface{}) {
+	customFuncs[name] = func(argsQ ...query) func(query, iterator) interface{} {
+		return func(q query, t iterator) interface{} {
+			argsG := argsGetter{
+				args: argsQ,
+				t:    t,
+			}
+			return f(&argsG)
+		}
+	}
 }
 
 // NodeIterator holds all matched Node object.
